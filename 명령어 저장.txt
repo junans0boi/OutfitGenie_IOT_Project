@@ -1,0 +1,2 @@
+서버 다운  명령어
+taskkill /IM nginx.exe /F
