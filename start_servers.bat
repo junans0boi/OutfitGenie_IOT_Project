@@ -12,7 +12,7 @@ REM Change to the HollyWood directory
 cd /d C:\WebServer\HollyWood
 
 REM Start HollyWood FastAPI server
-start cmd /k "set PYTHONPATH=C:\WebServer\HollyWood && uvicorn main:app --host 0.0.0.0 --port 8000"
+start cmd /k "set PYTHONPATH=C:\WebServer\HollyWood && uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2 --backlog 2048"
 
 REM End of script
 @echo on
