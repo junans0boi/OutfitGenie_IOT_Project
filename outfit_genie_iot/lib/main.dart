@@ -1,16 +1,12 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'add_clothes_page_stub.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'logo_page.dart';
-import 'login_page.dart';
-import 'main_page.dart';
-import 'signup_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,7 +72,6 @@ Future<void> _saveLocation(double latitude, double longitude) async {
     print("오류 저장 위치: $e");
   }
 }
-
 
 class MyApp extends StatelessWidget {
   @override

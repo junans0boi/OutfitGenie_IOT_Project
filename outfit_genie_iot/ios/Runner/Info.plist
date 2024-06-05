@@ -6,6 +6,10 @@
     <string>We need access to the photo library to upload photos.</string>
     <key>NSCameraUsageDescription</key>
     <string>We need access to the camera to take photos.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>This app needs access to location when in use and at all times.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app needs access to the microphone.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>We need access to save photos to the library.</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -22,6 +26,10 @@
 	<string>wardrobe_iot</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>NSRemindersUsageDescription</key>
+    <string>This app needs access to reminders.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>This app needs access to speech recognition.</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>

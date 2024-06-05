@@ -3,7 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'add_clothes_page.dart';
+import 'add_clothes_page_stub.dart';
 import 'profile_page.dart';
 import 'search_clothes_page.dart';
 import 'create_outfit_page.dart';

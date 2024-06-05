@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' as html; // 웹에서 파일 선택을 위해 추가
 
 class AddClothesPage extends StatefulWidget {
   @override
@@ -15,7 +12,7 @@ class AddClothesPage extends StatefulWidget {
 }
 
 class _AddClothesPageState extends State<AddClothesPage> {
-  List<Uint8List> _images = []; // 웹에서는 Uint8List로 이미지 데이터를 저장
+  List<Uint8List> _images = [];
   final _categoryController = TextEditingController();
   final _colorController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
@@ -28,22 +25,12 @@ class _AddClothesPageState extends State<AddClothesPage> {
   }
 
   Future<void> _requestPermissions() async {
-    if (!kIsWeb) {
-      await Permission.camera.request();
-      await Permission.photos.request();
-      await Permission.storage.request();
-    }
+    await Permission.camera.request();
+    await Permission.photos.request();
+    await Permission.storage.request();
   }
 
   Future<void> _pickImageFromCamera() async {
-    if (kIsWeb) {
-      // 웹에서는 카메라 접근 불가능
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('웹에서는 카메라를 사용할 수 없습니다.'),
-      ));
-      return;
-    }
-
     try {
       final pickedFile = await _picker.pickImage(source: ImageSource.camera);
       if (pickedFile != null) {
@@ -63,48 +50,22 @@ class _AddClothesPageState extends State<AddClothesPage> {
   }
 
   Future<void> _pickImageFromGallery() async {
-    if (kIsWeb) {
-      try {
-        html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
-        uploadInput.accept = 'image/*';
-        uploadInput.click();
-
-        uploadInput.onChange.listen((e) {
-          final files = uploadInput.files;
-          if (files!.isNotEmpty) {
-            final reader = html.FileReader();
-            reader.readAsArrayBuffer(files[0]);
-            reader.onLoadEnd.listen((e) {
-              setState(() {
-                _images.add(reader.result as Uint8List);
-                _isImageSelected = true;
-              });
-            });
-          }
-        });
-      } catch (e) {
+    try {
+      final pickedFiles = await _picker.pickMultiImage();
+      if (pickedFiles != null && pickedFiles.isNotEmpty) {
+        for (var pickedFile in pickedFiles) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() {
+            _images.add(bytes);
+            _isImageSelected = true;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Failed to pick images: $e'),
         ));
-      }
-    } else {
-      try {
-        final pickedFiles = await _picker.pickMultiImage();
-        if (pickedFiles != null && pickedFiles.isNotEmpty) {
-          for (var pickedFile in pickedFiles) {
-            final bytes = await pickedFile.readAsBytes();
-            setState(() {
-              _images.add(bytes);
-              _isImageSelected = true;
-            });
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Failed to pick images: $e'),
-          ));
-        }
       }
     }
   }
