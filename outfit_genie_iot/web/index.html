@@ -29,17 +29,21 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>wardrobe_iot</title>
+  <title>OutfitGenie</title>
   <link rel="manifest" href="manifest.json">
 
   <script>
     // The value below is injected by flutter build, do not touch.
-    const serviceWorkerVersion = null;
+    var serviceWorkerVersion = null;
+
   </script>
   <!-- This script adds the flutter initialization JS code -->
   <script src="flutter.js" defer></script>
+  <script src="main.dart.js" defer></script>
+
 </head>
 <body>
+
   <script>
     window.addEventListener('load', function(ev) {
       // Download main.dart.js
@@ -55,5 +59,12 @@
       });
     });
   </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/flutter_service_worker.js?v={{flutter_service_worker_version}}');
+    }
+  </script>
+  <script src="flutter_service_worker.js?v={{flutter_service_worker_version}}"></script>
+
 </body>
 </html>

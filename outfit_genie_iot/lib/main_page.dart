@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'add_clothes_page.dart';
 import 'profile_page.dart';
+import 'search_clothes_page.dart';
+import 'create_outfit_page.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -9,53 +14,83 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  String _locationMessage = "Location not available";
+  String _locationMessage = "위치를 사용할 수 없음";
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    _getCurrentLocationAndSave();
   }
 
-  Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // 위치 서비스 활성화 확인
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      setState(() {
-        _locationMessage = "Location services are disabled.";
-      });
-      return;
-    }
-
-    // 위치 권한 확인
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
+  Future<void> _getCurrentLocationAndSave() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
         setState(() {
-          _locationMessage = "Location permissions are denied";
+          _locationMessage = "위치 서비스가 비활성화되었습니다";
         });
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            _locationMessage = "위치 권한이 거부되었습니다.";
+          });
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _locationMessage =
+          "위치 권한은 영구적으로 거부되며, 권한을 요청할 수 없습니다.";
+        });
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       setState(() {
         _locationMessage =
-        "Location permissions are permanently denied, we cannot request permissions.";
+        "위도: ${position.latitude}, 경도: ${position.longitude}";
       });
-      return;
-    }
 
-    // 현재 위치 가져오기
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    setState(() {
-      _locationMessage = "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
-    });
+      await _saveLocation(position.latitude, position.longitude);
+    } catch (e) {
+      print("Error getting location: $e");
+    }
+  }
+
+  Future<void> _saveLocation(double latitude, double longitude) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? username = prefs.getString('username');
+      int? userId = prefs.getInt('user_id');
+      String location = '위도: $latitude, 경도: $longitude';
+
+      if (username != null && userId != null) {
+        final response = await http.post(
+          Uri.parse('http://hollywood.kro.kr/update_location'),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          body: jsonEncode(<String, dynamic>{
+            'UserID': userId,
+            'gridX': latitude,
+            'gridY': longitude,
+          }),
+        );
+
+        if (response.statusCode != 200) {
+          print('Failed to update location');
+        }
+      }
+    } catch (e) {
+      print("Error saving location: $e");
+    }
   }
 
   @override
@@ -65,15 +100,23 @@ class _MainPageState extends State<MainPage> {
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Main',
+            label: '메인 페이지',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: '옷 검색',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_a_photo),
-            label: 'Add Clothes',
+            label: '옷 추가',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.create),
+            label: '옷 세트 만들기',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Profile',
+            label: '프로필',
           ),
         ],
         onTap: (index) {
@@ -85,9 +128,19 @@ class _MainPageState extends State<MainPage> {
           } else if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => AddClothesPage()),
+              MaterialPageRoute(builder: (context) => SearchClothesPage()),
             );
           } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AddClothesPage()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => CreateOutfitPage()),
+            );
+          } else if (index == 4) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => ProfilePage()),
@@ -99,10 +152,16 @@ class _MainPageState extends State<MainPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_locationMessage),
+            Text(
+              _locationMessage,
+              style: TextStyle(fontFamily: 'NotoSans'),
+            ),
             ElevatedButton(
-              onPressed: _getCurrentLocation,
-              child: Text('Fetch Location Info'),
+              onPressed: _getCurrentLocationAndSave,
+              child: Text(
+                '위치 정보 가져오기',
+                style: TextStyle(fontFamily: 'NotoSans'),
+              ),
             ),
           ],
         ),

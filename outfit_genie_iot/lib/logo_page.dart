@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'login_page.dart';
 import 'main_page.dart';
+import 'login_page.dart';
 
 class LogoPage extends StatefulWidget {
   @override
@@ -12,13 +12,15 @@ class _LogoPageState extends State<LogoPage> {
   @override
   void initState() {
     super.initState();
-    _navigateToLogin();
+    _checkLoginStatus();
   }
 
-  _navigateToLogin() async {
-    await Future.delayed(Duration(seconds: 3), () {});
+  Future<void> _checkLoginStatus() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    // 3초 후에 로그인 상태에 따라 페이지 이동
+    await Future.delayed(Duration(seconds: 3));
     if (isLoggedIn) {
       Navigator.pushReplacement(
         context,
@@ -36,7 +38,7 @@ class _LogoPageState extends State<LogoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Text('OutfitGenie', style: TextStyle(fontSize: 30)),
+        child: Text('OutfitGenie', style: TextStyle(fontSize: 40)),
       ),
     );
   }

@@ -14,7 +14,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  _login() async {
+  Future<void> _login() async {
     final response = await http.post(
       Uri.parse('http://hollywood.kro.kr/login/'),
       headers: <String, String>{
@@ -22,17 +22,18 @@ class _LoginPageState extends State<LoginPage> {
       },
       body: jsonEncode(<String, String>{
         'Username': _usernameController.text,
-        'Password': _passwordController.text,
+        'Password': _usernameController.text,
       }),
     );
 
     if (response.statusCode == 200) {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       prefs.setBool('isLoggedIn', true);
-      prefs.setString('username', _usernameController.text); // username 저장
-      // user_id를 저장하려면 API 응답에서 가져와서 저장
+      prefs.setString('username', _usernameController.text);
+
       final Map<String, dynamic> data = jsonDecode(response.body);
       prefs.setInt('user_id', data['UserID']);
+      prefs.setString('nickname', data['Nickname']); // Nickname 저장
 
       Navigator.pushReplacement(
         context,
@@ -40,7 +41,7 @@ class _LoginPageState extends State<LoginPage> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Invalid login credentials'),
+        content: Text('잘못된 로그인 접근'),
       ));
     }
   }
