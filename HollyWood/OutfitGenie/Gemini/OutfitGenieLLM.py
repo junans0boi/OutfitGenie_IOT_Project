@@ -28,7 +28,6 @@ def recommandClothes(prompt, images):
     return result
 
 image_url = open('image/test.jpeg', 'rb')
-image = f"data:image/jpeg;base64,{base64.b64encode(image_url.read()).decode('utf-8')}"
-
+image = 
 result = recommandClothes("패션 분석 ㄱ", image)
 print(result)

@@ -1,5 +1,5 @@
 import os
-from HollyWood.OutfitGenie.OutfitGenieLLM import set_api_key, get_dummy_data, generate_prompt, get_llm_answer
+from HollyWood.OutfitGenie.Gemini.OutfitGenieLLM import set_api_key, get_dummy_data, generate_prompt, get_llm_answer
 from HollyWood.OutfitGenie.OutfitGenieGTTS import generate_tts
 
 # 메인 함수로, API 키 설정, 더미 데이터 가져오기, 프롬프트 생성,
