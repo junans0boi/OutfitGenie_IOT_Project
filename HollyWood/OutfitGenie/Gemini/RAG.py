@@ -3,8 +3,7 @@ import base64
 
 from langchain_core.runnables import Runnable, RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptTemplate
-from langchain_core.messages import HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.vectorstores.faiss import FAISS
 from langchain_community.document_loaders import PyPDFLoader
@@ -25,25 +24,25 @@ def create_chat_prompt_template_with_few_shot(system_template: str, examples: li
     return ChatPromptTemplate.from_messages(
         [
             ("system", system_template),
-            FewShotChatMessagePromptTemplate(
-                example_prompt=ChatPromptTemplate.from_messages(
-                    [
-                        ("human", "질문: {question}"),
-                        ("ai", "답변: {answer}\n")
-                    ]
-                ),
-                examples=examples
-            ),
-            HumanMessage(
-                content=[
+            # FewShotChatMessagePromptTemplate(
+            #     example_prompt=ChatPromptTemplate.from_messages(
+            #         [
+            #             ("human", "질문: {question}"),
+            #             ("ai", "답변: {answer}\n")
+            #         ]
+            #     ),
+            #     examples=examples
+            # ),
+            HumanMessagePromptTemplate.from_template(
+                [
                     {
                         "type": "text",
                         "text": human_template
                     },
                     {
                         "type": "image_url",
-                        "image_url": f"data:image/jpeg;base64,{base64.b64encode(image.read()).decode('utf-8')}"
-                    } for image in images
+                        "image_url": "data:image/jpeg;base64,{base64_image}"
+                    }
                 ]
             )
         ]
@@ -72,7 +71,8 @@ def get_outfit_genie_chain() -> Runnable:
             "question": itemgetter("question"),
             "context": itemgetter("question")
             | create_pdf_vector_store_ensemble_retriever(PDF_LIST)
-            | RunnableLambda(parse_page_content)
+            | RunnableLambda(parse_page_content),
+            "base64_image": itemgetter("base64_image")
         }
         | create_chat_prompt_template_with_few_shot(
             SYSTEM_TEMPLATE,
@@ -88,4 +88,8 @@ def get_outfit_genie_chain() -> Runnable:
 
 if __name__ == "__main__":
     outfit_genie = get_outfit_genie_chain()
-    print(outfit_genie.invoke({"question": "Hello who are you"}))
+    import sys
+    with open(sys.path[0] + "/Fox Giving Day.png", "rb") as image:
+        base64_image = base64.b64encode(image.read()).decode('utf-8')
+        result = outfit_genie.invoke({"question": "Can you see my image?", "base64_image": base64_image})
+        print(result)
