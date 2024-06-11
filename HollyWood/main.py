@@ -7,6 +7,7 @@ from typing import List
 import aiomysql
 import logging
 import base64
+from datetime import datetime
 from OutfitGenie.getWeather import get_weather  # 날씨 API 코드 Import 
 from OutfitGenie.getGrid import dfs_xy_conv
 
@@ -48,14 +49,13 @@ async def get_db():
         finally:
             conn.close()
 
-
-# 모델 정의
 class User(BaseModel):
     UserID: int = Field(None, alias="UserID")
     Username: str = Field(..., alias="Username")
     Password: str = Field(..., alias="Password")
     Nickname: str = Field(None, alias="Nickname")
-    Location: str = Field(None, alias="Location")
+    gridX: float = Field(default=0.0, alias="gridX")
+    gridY: float = Field(default=0.0, alias="gridY")
 
 class UserLogin(BaseModel):
     Username: str
@@ -82,19 +82,28 @@ async def read_index():
     루트 URL (/)에서 index.html 파일 제공
     """
     index_path = Path("templates") / "index.html"
-    if index_path.exists():
+    if (index_path.exists()):
         return index_path.read_text()
     return HTMLResponse(content="index.html not found", status_code=404)
 
-@app.get("/users/", response_model=List[User])
-async def read_users(db=Depends(get_db)):
+@app.post("/login/")
+async def login(user: UserLogin, db=Depends(get_db)):
     """
-    사용자 정보 가져오기
+    로그인 기능 구현
     """
     async with db.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute("SELECT * FROM outfitgenie_users")
-        result = await cursor.fetchall()
-        return [User(**row) for row in result]
+        await cursor.execute(
+            "SELECT * FROM outfitgenie_users WHERE Username = %s AND Password = %s",
+            (user.Username, user.Password)
+        )
+        result = await cursor.fetchone()
+        if result:
+            result['Location'] = result.get('Location', "")
+            result['gridX'] = result.get('gridX', 0.0)
+            result['gridY'] = result.get('gridY', 0.0)
+            return User(**result)
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
 
 @app.get("/users/{user_id}", response_model=User)
 async def read_user(user_id: int, db=Depends(get_db)):
@@ -108,11 +117,15 @@ async def read_user(user_id: int, db=Depends(get_db)):
             return User(**result)
         raise HTTPException(status_code=404, detail="User not found")
 
+# 사용자 추가하기 (회원가입)
 @app.post("/users/", response_model=User)
 async def create_user(user: User, db=Depends(get_db)):
     """
     사용자 추가하기 (회원가입)
     """
+    user.gridX = 0.0  # 기본값 0으로 설정
+    user.gridY = 0.0  # 기본값 0으로 설정
+    
     try:
         async with db.cursor() as cursor:
             await cursor.execute(
@@ -137,28 +150,40 @@ async def login(user: UserLogin, db=Depends(get_db)):
         )
         result = await cursor.fetchone()
         if result:
+            result['Location'] = result.get('Location', "")
+            result['gridX'] = result.get('gridX', 0.0)
+            result['gridY'] = result.get('gridY', 0.0)
             return User(**result)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-@app.post("/update_location/", response_model=User)
-async def update_location(update: UpdateLocation, db=Depends(get_db)):
+
+@app.post("/update_location/")
+async def update_location(location: UpdateLocation, db=Depends(get_db)):
     """
     사용자 위치 정보 업데이트
     """
-    async with db.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute(
-            "UPDATE outfitgenie_users SET gridX = %s, gridY = %s WHERE UserID = %s",
-            (update.gridX, update.gridY, update.UserID)
-        )
-        await db.commit()
-        await cursor.execute("SELECT * FROM outfitgenie_users WHERE UserID = %s", (update.UserID,))
-        result = await cursor.fetchone()
-        if result:
-            return User(**result)
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        async with db.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE outfitgenie_users SET gridX = %s, gridY = %s WHERE UserID = %s",
+                (location.gridX, location.gridY, location.UserID)
+            )
+            await db.commit()
+            return {"message": "Location updated successfully"}
+    except aiomysql.MySQLError as e:
+        logging.error(f"Database error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
+
+# Define the upload_clothes function with correct type hinting
 @app.post("/upload_clothes/")
-async def upload_clothes(user_id: int = Form(...), image_data: str = Form(...), category: str = Form(...), color: str = Form(...), db: aiomysql.Connection = Depends(get_db)):
+async def upload_clothes(
+    user_id: int = Form(...),
+    image_data: str = Form(...),
+    category: str = Form(...),
+    color: str = Form(...),
+    db: aiomysql.Connection = Depends(get_db)
+):
     """
     옷 이미지 업로드
     """
@@ -178,7 +203,6 @@ async def upload_clothes(user_id: int = Form(...), image_data: str = Form(...), 
     except aiomysql.MySQLError as e:
         logging.error(f"Database error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @app.get("/clothes/{username}", response_model=List[Clothes])
 async def get_clothes_by_username(username: str, db=Depends(get_db)):
@@ -268,44 +292,51 @@ async def update_profile(user_id: int = Form(...), nickname: str = Form(...), db
         logging.error(f"Database error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/getWeather")
-async def read_weather():
+# 날씨 데이터를 저장하는 함수
+async def save_weather_data(weather_data: dict, db):
+    query = """
+    INSERT INTO outfitgenie_weather (date, location, hour00, hour01, hour02, hour03, hour04, hour05, hour06, hour07, hour08, hour09, hour10, hour11, hour12, hour13, hour14, hour15, hour16, hour17, hour18, hour19, hour20, hour21, hour22, hour23)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
-    날씨 정보 가져오기
-    """
-    weather_data = get_weather()  # getWeather.py의 함수를 호출하여 날씨 데이터를 가져옴
-    return {"weather": weather_data}
-
-@app.get("/updateWeatherCoords/{user_id}")
-async def update_weather_coords(user_id: int, db=Depends(get_db)):
-    """
-    사용자 위치 정보를 바탕으로 날씨 좌표 업데이트
-    """
-    async with db.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute("SELECT gridX, gridY FROM outfitgenie_users WHERE UserID = %s", (user_id,))
-        result = await cursor.fetchone()
-        if result:
-            gridX, gridY = result['gridX'], result['gridY']
-            nx, ny = dfs_xy_conv("toXY", gridX, gridY)
-            return {"NX": nx, "NY": ny}
-        raise HTTPException(status_code=404, detail="User not found")
+    # 날짜 형식을 변환 (YYYY-MM-DD)
+    date_value = datetime.strptime(weather_data['date'], "%Y년 %m월 %d일").strftime("%Y-%m-%d")
+    
+    values = (
+        date_value, weather_data['location'], weather_data.get('hour00'), weather_data.get('hour01'), 
+        weather_data.get('hour02'), weather_data.get('hour03'), weather_data.get('hour04'), weather_data.get('hour05'), 
+        weather_data.get('hour06'), weather_data.get('hour07'), weather_data.get('hour08'), weather_data.get('hour09'), 
+        weather_data.get('hour10'), weather_data.get('hour11'), weather_data.get('hour12'), weather_data.get('hour13'), 
+        weather_data.get('hour14'), weather_data.get('hour15'), weather_data.get('hour16'), weather_data.get('hour17'), 
+        weather_data.get('hour18'), weather_data.get('hour19'), weather_data.get('hour20'), weather_data.get('hour21'), 
+        weather_data.get('hour22'), weather_data.get('hour23')
+    )
+    async with db.cursor() as cursor:
+        await cursor.execute(query, values)
+        await db.commit()
 
 @app.get("/getWeather/{user_id}")
-async def read_weather(user_id: int, db=Depends(get_db)):
+async def get_weather_for_user(user_id: int, db=Depends(get_db)):
     """
-    특정 사용자의 위치 정보를 바탕으로 날씨 정보 가져오기
+    Get weather information for a specific user based on their location and save it to the database
     """
     async with db.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute("SELECT gridX, gridY FROM outfitgenie_users WHERE UserID = %s", (user_id,))
+        await cursor.execute("SELECT * FROM outfitgenie_users WHERE UserID = %s", (user_id,))
         result = await cursor.fetchone()
-        if result:
-            gridX, gridY = result['gridX'], result['gridY']
-            nx, ny = dfs_xy_conv("toXY", gridX, gridY)
-            weather_data = get_weather(nx, ny)  # get_weather 함수에 nx, ny 전달
-            return {"weather": weather_data}
-        raise HTTPException(status_code=404, detail="User not found")
+        if not result:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        lat, lng = result['gridX'], result['gridY']
+        gridX, gridY = dfs_xy_conv("toXY", lat, lng)
+        weather_data = get_weather(gridX, gridY)
+        
+        if 'error' in weather_data:
+            raise HTTPException(status_code=500, detail=weather_data['error'])
+        
+        await save_weather_data(weather_data, db)
+        
+        return weather_data
 
-# 메인 실행문
+# Main execution block
 if __name__ == "__main__":
     import uvicorn
     logging.basicConfig(level=logging.INFO)

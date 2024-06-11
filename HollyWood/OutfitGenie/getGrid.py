@@ -1,13 +1,15 @@
+# getGrid.py
 import math
+import logging
 
-RE = 6371.00877  # 지구 반경(km)
-GRID = 5.0  # 격자 간격(km)
-SLAT1 = 30.0  # 투영 위도1(degree)
-SLAT2 = 60.0  # 투영 위도2(degree)
-OLON = 126.0  # 기준점 경도(degree)
-OLAT = 38.0  # 기준점 위도(degree)
-XO = 43  # 기준점 X좌표(GRID)
-YO = 136  # 기준점 Y좌표(GRID)
+RE = 6371.00877  # Earth's radius (km)
+GRID = 5.0  # Grid spacing (km)
+SLAT1 = 30.0  # Projection latitude 1 (degree)
+SLAT2 = 60.0  # Projection latitude 2 (degree)
+OLON = 126.0  # Reference point longitude (degree)
+OLAT = 38.0  # Reference point latitude (degree)
+XO = 43  # Reference point X coordinate (GRID)
+YO = 136  # Reference point Y coordinate (GRID)
 
 def dfs_xy_conv(code, v1, v2):
     DEGRAD = math.pi / 180.0
@@ -41,10 +43,7 @@ def dfs_xy_conv(code, v1, v2):
         rs['x'] = math.floor(ra * math.sin(theta) + XO + 0.5)
         rs['y'] = math.floor(ro - ra * math.cos(theta) + YO + 0.5)
 
+        logging.info(f"Converted lat {v1}, lng {v2} to grid coordinates x {rs['x']}, y {rs['y']}")
         return rs['x'], rs['y']
 
     return None
-
-# 테스트 코드
-gridX, gridY = dfs_xy_conv("toXY", 37.4469123, 126.6872232)  # 인하공전 위경도
-print(f"x: {gridX}, y: {gridY}")
