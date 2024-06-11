@@ -13,6 +13,7 @@ void main() async {
   runApp(MyApp());
 }
 
+// 위치 권한 요청 후 위치 정보 저장
 Future<void> _requestPermissions() async {
   try {
     if (!kIsWeb) {
@@ -32,6 +33,7 @@ Future<void> _requestPermissions() async {
   }
 }
 
+// 위치 정보를 받아서 저장
 Future<void> _getCurrentLocationAndSave() async {
   if (kIsWeb) return; // 웹에서는 위치 정보를 사용하지 않음
   try {
@@ -44,6 +46,7 @@ Future<void> _getCurrentLocationAndSave() async {
   }
 }
 
+// 위치 정보를 서버에 저장
 Future<void> _saveLocation(double latitude, double longitude) async {
   try {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -52,7 +55,7 @@ Future<void> _saveLocation(double latitude, double longitude) async {
 
     if (username != null && userId != null) {
       final response = await http.post(
-        Uri.parse('http://hollywood.kro.kr/update_location'),
+        Uri.parse('http://hollywood.kro.kr/update_location/'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
@@ -65,12 +68,18 @@ Future<void> _saveLocation(double latitude, double longitude) async {
 
       if (response.statusCode != 200) {
         print('위치를 업데이트하지 못했습니다.');
+        print('Response status: ${response.statusCode}');
+        print('Response body: ${response.body}');
       }
+    } else {
+      print('User is not logged in');
     }
   } catch (e) {
     print("오류 저장 위치: $e");
   }
 }
+
+
 
 class MyApp extends StatelessWidget {
   @override

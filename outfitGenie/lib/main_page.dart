@@ -19,7 +19,18 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
-    _getCurrentLocationAndSave();
+    _checkLoginAndFetchLocation();
+  }
+
+  Future<void> _checkLoginAndFetchLocation() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool? isLoggedIn = prefs.getBool('isLoggedIn');
+    bool? hasFetchedLocation = prefs.getBool('hasFetchedLocation');
+
+    if (isLoggedIn == true && hasFetchedLocation != true) {
+      await _getCurrentLocationAndSave();
+      prefs.setBool('hasFetchedLocation', true); // 위치 저장 여부를 설정
+    }
   }
 
   Future<void> _getCurrentLocationAndSave() async {
@@ -72,7 +83,7 @@ class _MainPageState extends State<MainPage> {
 
       if (username != null && userId != null) {
         final response = await http.post(
-          Uri.parse('http://hollywood.kro.kr/update_location'),
+          Uri.parse('http://hollywood.kro.kr/update_location/'),
           headers: <String, String>{
             'Content-Type': 'application/json; charset=UTF-8',
           },
@@ -84,11 +95,15 @@ class _MainPageState extends State<MainPage> {
         );
 
         if (response.statusCode != 200) {
-          print('Failed to update location');
+          print('위치를 업데이트하지 못했습니다.');
+          print('Response status: ${response.statusCode}');
+          print('Response body: ${response.body}');
         }
+      } else {
+        print('User is not logged in');
       }
     } catch (e) {
-      print("Error saving location: $e");
+      print("오류 저장 위치: $e");
     }
   }
 

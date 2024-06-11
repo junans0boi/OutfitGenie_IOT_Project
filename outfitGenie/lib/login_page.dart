@@ -15,33 +15,42 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   Future<void> _login() async {
-    final response = await http.post(
-      Uri.parse('http://hollywood.kro.kr/login/'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(<String, String>{
-        'Username': _usernameController.text,
-        'Password': _usernameController.text,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      prefs.setBool('isLoggedIn', true);
-      prefs.setString('username', _usernameController.text);
-
-      final Map<String, dynamic> data = jsonDecode(response.body);
-      prefs.setInt('user_id', data['UserID']);
-      prefs.setString('nickname', data['Nickname']); // Nickname 저장
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MainPage()),
+    try {
+      final response = await http.post(
+        Uri.parse('http://hollywood.kro.kr/login/'),  // Note the trailing slash
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, String>{
+          'Username': _usernameController.text,
+          'Password': _passwordController.text,
+        }),
       );
-    } else {
+
+      if (response.statusCode == 200) {
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        prefs.setBool('isLoggedIn', true);
+        prefs.setString('username', _usernameController.text);
+
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        prefs.setInt('user_id', data['UserID']);
+        prefs.setString('nickname', data['Nickname']); // Nickname 저장
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => MainPage()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Login failed: ${response.reasonPhrase}', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (error) {
+      print('Login error: $error');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('잘못된 로그인 접근'),
+        content: Text('Login failed: $error', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.red,
       ));
     }
   }
