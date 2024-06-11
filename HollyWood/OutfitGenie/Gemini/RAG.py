@@ -3,7 +3,7 @@ import base64
 
 from langchain_core.runnables import Runnable, RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.vectorstores.faiss import FAISS
 from langchain_community.document_loaders import PyPDFLoader
@@ -12,7 +12,7 @@ from langchain_core.documents import Document
 from langchain.pydantic_v1 import BaseModel
 from langchain_core.output_parsers import StrOutputParser
 
-from templates import SYSTEM_TEMPLATE, EXAMPLES, HUMAN_TEMPLATE, PDF_LIST
+from templates import SYSTEM_TEMPLATE, HUMAN_TEMPLATE, PDF_LIST
 
 def create_gemini_pro_vision() -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
@@ -20,19 +20,10 @@ def create_gemini_pro_vision() -> ChatGoogleGenerativeAI:
         convert_system_message_to_human=True
     )
 
-def create_chat_prompt_template_with_few_shot(system_template: str, examples: list[dict[str, str]], human_template: str) -> ChatPromptTemplate:
+def create_chat_prompt_template_with_few_shot(system_template: str, human_template: str) -> ChatPromptTemplate:
     return ChatPromptTemplate.from_messages(
         [
             ("system", system_template),
-            # FewShotChatMessagePromptTemplate(
-            #     example_prompt=ChatPromptTemplate.from_messages(
-            #         [
-            #             ("human", "질문: {question}"),
-            #             ("ai", "답변: {answer}\n")
-            #         ]
-            #     ),
-            #     examples=examples
-            # ),
             HumanMessagePromptTemplate.from_template(
                 [
                     {
@@ -64,8 +55,10 @@ def parse_page_content(documents: list[Document]) -> str:
 def get_outfit_genie_chain() -> Runnable:
     class Input(BaseModel):
         question: str
+
     class Output(BaseModel):
         answer: str
+        
     return (
         {
             "question": itemgetter("question"),
@@ -76,7 +69,6 @@ def get_outfit_genie_chain() -> Runnable:
         }
         | create_chat_prompt_template_with_few_shot(
             SYSTEM_TEMPLATE,
-            EXAMPLES,
             HUMAN_TEMPLATE
         )
         | create_gemini_pro_vision()
