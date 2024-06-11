@@ -8,7 +8,7 @@ BASE_TIMES = ['0200', '0500', '0800', '1100', '1400', '1700', '2000', '2300']
 PTY_CODE = {0: '강수 없음', 1: '비', 2: '비/눈', 3: '눈', 5: '빗방울', 6: '진눈깨비', 7: '눈날림'}
 SKY_CODE = {1: '맑음', 3: '구름많음', 4: '흐림'}
 
-def get_weather(NX, NY):
+def get_weather(NX, NY, location):
     base_date = datetime.today().strftime("%Y%m%d")
     
     for base_time in BASE_TIMES:
@@ -27,7 +27,7 @@ def get_weather(NX, NY):
                 weather_dict = parse_weather_data(data)
                 
                 weather_dict['date'] = f"{base_date[:4]}년 {base_date[4:6]}월 {base_date[6:]}일"
-                weather_dict['location'] = f"{NX}, {NY}"
+                weather_dict['location'] = location
                 
                 return weather_dict
             else:
@@ -72,17 +72,3 @@ def parse_weather_data(data):
         return parsed_data
     except KeyError as e:
         return {"error": f"데이터 처리 중 오류 발생: {e}"}
-
-# 테스트 코드 주석 처리
-# result = get_weather(NX, NY)
-
-# 변수 출력 주석 처리
-# if 'error' not in result:
-#     print(f"date : {result['date']}")
-#     print(f"location : {result['location']}")
-#     for hour in range(24):
-#         hour_key = f"hour{hour:02d}"
-#         if hour_key in result:
-#             print(f"{hour_key} : {result[hour_key]}")
-# else:
-#     print(result['error'])

@@ -10,6 +10,7 @@ import base64
 from datetime import datetime
 from OutfitGenie.getWeather import get_weather  # 날씨 API 코드 Import 
 from OutfitGenie.getGrid import dfs_xy_conv
+from OutfitGenie.OutfitGenieGeocodeing import get_location_from_coordinates  # Geocoding 함수 Import
 
 # FastAPI 앱 초기화
 app = FastAPI()
@@ -326,8 +327,13 @@ async def get_weather_for_user(user_id: int, db=Depends(get_db)):
             raise HTTPException(status_code=404, detail="User not found")
         
         lat, lng = result['gridX'], result['gridY']
+        location = get_location_from_coordinates(lat, lng, "AIzaSyBRxXtU77QsvG8Jna0y7qrwtmitZgEHYWo")
+        
+        if not location:
+            raise HTTPException(status_code=500, detail="Unable to convert coordinates to location")
+        
         gridX, gridY = dfs_xy_conv("toXY", lat, lng)
-        weather_data = get_weather(gridX, gridY)
+        weather_data = get_weather(gridX, gridY, location)
         
         if 'error' in weather_data:
             raise HTTPException(status_code=500, detail=weather_data['error'])
