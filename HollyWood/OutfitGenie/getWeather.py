@@ -10,7 +10,7 @@ NY = '124'
 PTY_CODE = {0: '강수 없음', 1: '비', 2: '비/눈', 3: '눈', 5: '빗방울', 6: '진눈깨비', 7: '눈날림'}
 SKY_CODE = {1: '맑음', 3: '구름많음', 4: '흐림'}
 
-def get_weather():
+def get_weather(nx, ny):
     base_date = datetime.today().strftime("%Y%m%d")
     
     url = (

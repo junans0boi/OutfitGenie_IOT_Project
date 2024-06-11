@@ -7,16 +7,14 @@ from typing import List
 import aiomysql
 import logging
 import base64
-from OutfitGenie.getWeather import get_weather # 날씨 API 코드 Import 
+from OutfitGenie.getWeather import get_weather  # 날씨 API 코드 Import 
+from OutfitGenie.getGrid import dfs_xy_conv
 
 # FastAPI 앱 초기화
 app = FastAPI()
 
 # CORS 설정
-origins = [
-    "*"
-]
-
+origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -50,6 +48,7 @@ async def get_db():
         finally:
             conn.close()
 
+
 # 모델 정의
 class User(BaseModel):
     UserID: int = Field(None, alias="UserID")
@@ -77,25 +76,31 @@ class Clothes(BaseModel):
 class Outfit(BaseModel):
     ClothesIDs: List[int]
 
-# 루트 URL (/)에서 index.html 파일 제공
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
+    """
+    루트 URL (/)에서 index.html 파일 제공
+    """
     index_path = Path("templates") / "index.html"
     if index_path.exists():
         return index_path.read_text()
     return HTMLResponse(content="index.html not found", status_code=404)
 
-# 사용자 정보 가져오기
 @app.get("/users/", response_model=List[User])
 async def read_users(db=Depends(get_db)):
+    """
+    사용자 정보 가져오기
+    """
     async with db.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute("SELECT * FROM outfitgenie_users")
         result = await cursor.fetchall()
         return [User(**row) for row in result]
 
-# 특정 사용자 정보 가져오기
 @app.get("/users/{user_id}", response_model=User)
 async def read_user(user_id: int, db=Depends(get_db)):
+    """
+    특정 사용자 정보 가져오기
+    """
     async with db.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute("SELECT * FROM outfitgenie_users WHERE UserID = %s", (user_id,))
         result = await cursor.fetchone()
@@ -103,9 +108,11 @@ async def read_user(user_id: int, db=Depends(get_db)):
             return User(**result)
         raise HTTPException(status_code=404, detail="User not found")
 
-# 사용자 추가하기 (회원가입)
 @app.post("/users/", response_model=User)
 async def create_user(user: User, db=Depends(get_db)):
+    """
+    사용자 추가하기 (회원가입)
+    """
     try:
         async with db.cursor() as cursor:
             await cursor.execute(
@@ -113,15 +120,16 @@ async def create_user(user: User, db=Depends(get_db)):
                 (user.Username, user.Password, user.Nickname, user.gridX, user.gridY)
             )
             await db.commit()
-            user_id = cursor.lastrowid
-            user.UserID = user_id
+            user.UserID = cursor.lastrowid
             return user
     except aiomysql.MySQLError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# 로그인 기능 구현
 @app.post("/login/")
 async def login(user: UserLogin, db=Depends(get_db)):
+    """
+    로그인 기능 구현
+    """
     async with db.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(
             "SELECT * FROM outfitgenie_users WHERE Username = %s AND Password = %s",
@@ -132,9 +140,11 @@ async def login(user: UserLogin, db=Depends(get_db)):
             return User(**result)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-# 사용자 위치 정보 업데이트
 @app.post("/update_location/", response_model=User)
 async def update_location(update: UpdateLocation, db=Depends(get_db)):
+    """
+    사용자 위치 정보 업데이트
+    """
     async with db.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(
             "UPDATE outfitgenie_users SET gridX = %s, gridY = %s WHERE UserID = %s",
@@ -146,39 +156,35 @@ async def update_location(update: UpdateLocation, db=Depends(get_db)):
         if result:
             return User(**result)
         raise HTTPException(status_code=404, detail="User not found")
-    
-    
-
 
 @app.post("/upload_clothes/")
-async def upload_clothes(user_id: int = Form(...), category: str = Form(...), color: str = Form(...), file: UploadFile = File(...), db=Depends(get_db)):
+async def upload_clothes(user_id: int = Form(...), image_data: str = Form(...), category: str = Form(...), color: str = Form(...), db: aiomysql.Connection = Depends(get_db)):
+    """
+    옷 이미지 업로드
+    """
     try:
-        logging.info(f"Received upload request: user_id={user_id}, filename={file.filename}")
-
-        # 파일 데이터 읽기
-        file_data = await file.read()
-        encoded_file_data = base64.b64encode(file_data).decode('utf-8')
-
-        # 데이터베이스에 옷 정보 삽입
+        image_data_bytes = base64.b64decode(image_data)
+        
         async with db.cursor() as cursor:
             await cursor.execute(
                 "INSERT INTO outfitgenie_clothes (UserID, ImageData, Category, Color) VALUES (%s, %s, %s, %s)",
-                (user_id, encoded_file_data, category, color)
+                (user_id, image_data_bytes, category, color)
             )
             await db.commit()
-            clothes_id = cursor.lastrowid
-            return Clothes(ClothesID=clothes_id, UserID=user_id, ImageData=encoded_file_data, Category=category, Color=color)
+            return {"message": "Image uploaded successfully"}
+    except base64.binascii.Error as e:
+        logging.error(f"Invalid image data: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid image data")
     except aiomysql.MySQLError as e:
         logging.error(f"Database error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logging.error(f"Error during upload: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
 
 
-# 사용자 이름으로 옷 데이터 가져오기
 @app.get("/clothes/{username}", response_model=List[Clothes])
 async def get_clothes_by_username(username: str, db=Depends(get_db)):
+    """
+    사용자 이름으로 옷 데이터 가져오기
+    """
     try:
         async with db.cursor(aiomysql.DictCursor) as cursor:
             await cursor.execute("""
@@ -190,7 +196,6 @@ async def get_clothes_by_username(username: str, db=Depends(get_db)):
 
             clothes_list = []
             for row in result:
-                # 바이너리 데이터를 base64로 인코딩
                 row['ImageData'] = base64.b64encode(row['ImageData']).decode('utf-8')
                 clothes_list.append(Clothes(**row))
 
@@ -199,9 +204,11 @@ async def get_clothes_by_username(username: str, db=Depends(get_db)):
         logging.error(f"Database error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-# 옷 검색 기능
 @app.get("/search_clothes", response_model=List[Clothes])
 async def search_clothes(category: str = "", color: str = "", db=Depends(get_db)):
+    """
+    옷 검색 기능
+    """
     query = "SELECT * FROM outfitgenie_clothes WHERE 1=1"
     params = []
     if category:
@@ -210,7 +217,7 @@ async def search_clothes(category: str = "", color: str = "", db=Depends(get_db)
     if color:
         query += " AND Color = %s"
         params.append(color)
-    
+
     try:
         async with db.cursor(aiomysql.DictCursor) as cursor:
             await cursor.execute(query, params)
@@ -226,9 +233,11 @@ async def search_clothes(category: str = "", color: str = "", db=Depends(get_db)
         logging.error(f"Database error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-# 옷 세트 만들기
 @app.post("/create_outfit")
 async def create_outfit(outfit: Outfit, db=Depends(get_db)):
+    """
+    옷 세트 만들기
+    """
     try:
         async with db.cursor() as cursor:
             for clothes_id in outfit.ClothesIDs:
@@ -242,9 +251,11 @@ async def create_outfit(outfit: Outfit, db=Depends(get_db)):
         logging.error(f"Database error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-# 프로필 업데이트
 @app.post("/update_profile")
 async def update_profile(user_id: int = Form(...), nickname: str = Form(...), db=Depends(get_db)):
+    """
+    프로필 업데이트
+    """
     try:
         async with db.cursor() as cursor:
             await cursor.execute(
@@ -257,14 +268,45 @@ async def update_profile(user_id: int = Form(...), nickname: str = Form(...), db
         logging.error(f"Database error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-# weather api
 @app.get("/getWeather")
 async def read_weather():
+    """
+    날씨 정보 가져오기
+    """
     weather_data = get_weather()  # getWeather.py의 함수를 호출하여 날씨 데이터를 가져옴
     return {"weather": weather_data}
+
+@app.get("/updateWeatherCoords/{user_id}")
+async def update_weather_coords(user_id: int, db=Depends(get_db)):
+    """
+    사용자 위치 정보를 바탕으로 날씨 좌표 업데이트
+    """
+    async with db.cursor(aiomysql.DictCursor) as cursor:
+        await cursor.execute("SELECT gridX, gridY FROM outfitgenie_users WHERE UserID = %s", (user_id,))
+        result = await cursor.fetchone()
+        if result:
+            gridX, gridY = result['gridX'], result['gridY']
+            nx, ny = dfs_xy_conv("toXY", gridX, gridY)
+            return {"NX": nx, "NY": ny}
+        raise HTTPException(status_code=404, detail="User not found")
+
+@app.get("/getWeather/{user_id}")
+async def read_weather(user_id: int, db=Depends(get_db)):
+    """
+    특정 사용자의 위치 정보를 바탕으로 날씨 정보 가져오기
+    """
+    async with db.cursor(aiomysql.DictCursor) as cursor:
+        await cursor.execute("SELECT gridX, gridY FROM outfitgenie_users WHERE UserID = %s", (user_id,))
+        result = await cursor.fetchone()
+        if result:
+            gridX, gridY = result['gridX'], result['gridY']
+            nx, ny = dfs_xy_conv("toXY", gridX, gridY)
+            weather_data = get_weather(nx, ny)  # get_weather 함수에 nx, ny 전달
+            return {"weather": weather_data}
+        raise HTTPException(status_code=404, detail="User not found")
 
 # 메인 실행문
 if __name__ == "__main__":
     import uvicorn
     logging.basicConfig(level=logging.INFO)
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info")
