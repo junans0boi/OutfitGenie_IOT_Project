@@ -1,4 +1,5 @@
 from operator import itemgetter
+from typing import List
 import base64
 
 from langchain_core.runnables import Runnable, RunnableLambda
@@ -20,22 +21,21 @@ def create_gemini_pro_vision() -> ChatGoogleGenerativeAI:
         convert_system_message_to_human=True
     )
 
-def create_chat_prompt_template_with_few_shot(system_template: str, human_template: str) -> ChatPromptTemplate:
+def create_chat_prompt_template(system_template: str, human_template: str, images: List[str]) -> ChatPromptTemplate:
+    human_messages = [{"type": "text", "text": human_template}]
+    for image in images:
+        human_messages.append(
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{image}"
+                }
+            }
+        )
     return ChatPromptTemplate.from_messages(
         [
             ("system", system_template),
-            HumanMessagePromptTemplate.from_template(
-                [
-                    {
-                        "type": "text",
-                        "text": human_template
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": "data:image/jpeg;base64,{base64_image}"
-                    }
-                ]
-            )
+            HumanMessagePromptTemplate.from_template(human_messages)
         ]
     )
 
@@ -52,24 +52,24 @@ def create_pdf_vector_store_ensemble_retriever(pdfs: list[str]) -> EnsembleRetri
 def parse_page_content(documents: list[Document]) -> str:
     return "".join(document.page_content for document in documents)
 
-def get_outfit_genie_chain() -> Runnable:
+def get_outfit_genie_chain(images: List[str]) -> Runnable:
     class Input(BaseModel):
-        question: str
+        weather: str
 
     class Output(BaseModel):
         answer: str
         
     return (
         {
-            "question": itemgetter("question"),
-            "context": itemgetter("question")
-            | create_pdf_vector_store_ensemble_retriever(PDF_LIST)
-            | RunnableLambda(parse_page_content),
-            "base64_image": itemgetter("base64_image")
+            "weather": itemgetter("weather"),
+            # "context": itemgetter("question")
+            # | create_pdf_vector_store_ensemble_retriever(PDF_LIST)
+            # | RunnableLambda(parse_page_content)
         }
-        | create_chat_prompt_template_with_few_shot(
+        | create_chat_prompt_template(
             SYSTEM_TEMPLATE,
-            HUMAN_TEMPLATE
+            HUMAN_TEMPLATE,
+            images
         )
         | create_gemini_pro_vision()
         | StrOutputParser()
@@ -78,10 +78,6 @@ def get_outfit_genie_chain() -> Runnable:
         output_type=Output
     )
 
-if __name__ == "__main__":
-    outfit_genie = get_outfit_genie_chain()
-    import sys
-    with open(sys.path[0] + "/Fox Giving Day.png", "rb") as image:
-        base64_image = base64.b64encode(image.read()).decode('utf-8')
-        result = outfit_genie.invoke({"question": "Can you see my image?", "base64_image": base64_image})
-        print(result)
+def excute_outfit_genie_chain(prompt: str, images: List[str]):
+    outfit_genie = get_outfit_genie_chain(images)
+    return outfit_genie.invoke({"weather": prompt})
