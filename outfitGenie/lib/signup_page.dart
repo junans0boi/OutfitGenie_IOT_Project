@@ -14,32 +14,40 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
 
-  _signup() async {
-    final response = await http.post(
-      Uri.parse('http://hollywood.kro.kr/users/'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(<String, String>{
-        'Username': _usernameController.text,
-        'Password': _passwordController.text,
-        'Nickname': _nicknameController.text,
-        'Location': _locationController.text,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Signup successful, please log in', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.blue,
-      ));
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => LoginPage()),
+  Future<void> _signup() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://hollywood.kro.kr/users/'),  // Note the trailing slash
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, String>{
+          'Username': _usernameController.text,
+          'Password': _passwordController.text,
+          'Nickname': _nicknameController.text,
+          'Location': _locationController.text,
+        }),
       );
-    } else {
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Signup successful, please log in', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.blue,
+        ));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginPage()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Signup failed: ${response.reasonPhrase}', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (error) {
+      print('Signup error: $error');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Signup failed', style: TextStyle(color: Colors.white)),
+        content: Text('Signup failed: $error', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     }
