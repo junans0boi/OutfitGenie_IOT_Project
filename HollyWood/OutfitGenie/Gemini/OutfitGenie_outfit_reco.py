@@ -82,4 +82,4 @@ def get_outfit_genie_chain(images: List[str]) -> Runnable:
 
 def execute_outfit_genie_chain(prompt: str, images: List[str]):
     outfit_genie = get_outfit_genie_chain(images)
-    return outfit_genie.invoke({"weather": prompt})
+    return outfit_genie.invoke({"prompt": prompt})
