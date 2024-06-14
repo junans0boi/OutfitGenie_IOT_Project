@@ -1,3 +1,4 @@
+
 # 경로 : C:\WebServer\HollyWood\WeatherNotice\WeatherNoticeGTTS.py
 from gtts import gTTS
 import os
@@ -17,3 +18,4 @@ def generate_tts(text: str, filename: str):
     
     # 음성 파일을 지정된 경로에 저장
     tts.save(filepath)
+    return filepath

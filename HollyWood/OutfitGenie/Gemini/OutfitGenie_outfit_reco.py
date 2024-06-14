@@ -1,3 +1,5 @@
+# OutfitGenie_outfit_reco.py
+
 from operator import itemgetter
 from typing import List
 import base64
@@ -6,14 +8,14 @@ from langchain_core.runnables import Runnable, RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain.retrievers import EnsembleRetriever
-from langchain_community.vectorstores.faiss import FAISS
-from langchain_community.document_loaders import PyPDFLoader
+from langchain.vectorstores.faiss import FAISS  # 수정된 import 경로
+from langchain.document_loaders import PyPDFLoader
 from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 from langchain_core.documents import Document
 from langchain.pydantic_v1 import BaseModel
 from langchain_core.output_parsers import StrOutputParser
 
-from templates import SYSTEM_TEMPLATE, HUMAN_TEMPLATE, PDF_LIST
+from HollyWood.OutfitGenie.Gemini.OutfitGenie_LLM import SYSTEM_TEMPLATE, HUMAN_TEMPLATE, PDF_LIST
 
 def create_gemini_pro_vision() -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
@@ -78,6 +80,6 @@ def get_outfit_genie_chain(images: List[str]) -> Runnable:
         output_type=Output
     )
 
-def excute_outfit_genie_chain(prompt: str, images: List[str]):
+def execute_outfit_genie_chain(prompt: str, images: List[str]):
     outfit_genie = get_outfit_genie_chain(images)
     return outfit_genie.invoke({"weather": prompt})

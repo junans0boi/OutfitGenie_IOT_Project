@@ -1,5 +1,0 @@
-__pycache__ : 로그 파일
-OutfitGenie : IOT 프로젝트 파일
-Static : 용도 따라 쓰는데 지금은 안씀
-templates : 웹서버 파일(HTML)
-Main.py : 웹서버 구동 파이썬 파일
